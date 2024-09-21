@@ -1,6 +1,6 @@
 namespace BlogSolution.Tests;
 
-public class UnitTest1
+public class BlogControllerTests
 {
     [Fact]
     public void Test1()
