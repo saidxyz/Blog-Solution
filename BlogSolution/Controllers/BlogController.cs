@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+
 namespace BlogSolution.Controllers
 {
     [Authorize]
@@ -14,12 +15,17 @@ namespace BlogSolution.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger<BlogController> _logger;
+        private readonly IAuthorizationService _authorizationService;
 
-        public BlogController(ApplicationDbContext context, UserManager<IdentityUser> userManager, ILogger<BlogController> logger)
+        public BlogController(ApplicationDbContext context, 
+            UserManager<IdentityUser> userManager, 
+            ILogger<BlogController> logger,
+            IAuthorizationService authorizationService)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
+            _authorizationService = authorizationService;
         }
 
         // GET: Blog

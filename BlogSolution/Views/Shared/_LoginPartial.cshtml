@@ -6,12 +6,6 @@
     @if (SignInManager.IsSignedIn(User))
     {
         <li class="nav-item">
-            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </li>
-        <li class="nav-item">
             <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
                 <button type="submit" class="nav-link btn btn-link text-dark">Logout</button>
             </form>

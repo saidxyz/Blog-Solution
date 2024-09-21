@@ -1,7 +1,7 @@
-﻿@model BlogSolution.Models.CommentEditViewModel
+﻿@model BlogSolution.ViewModels.CommentEditViewModel
 
 @{
-ViewData["Title"] = "Edit Comment";
+    ViewData["Title"] = "Edit Comment";
 }
 
 <h1>Edit Comment</h1>
@@ -9,14 +9,14 @@ ViewData["Title"] = "Edit Comment";
 <hr />
 @if (!ViewData.ModelState.IsValid)
 {
-<div class="alert alert-danger">
-    <ul>
-        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-        {
-        <li>@error.ErrorMessage</li>
-        }
-    </ul>
-</div>
+    <div class="alert alert-danger">
+        <ul>
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
 }
 <div class="row">
     <div class="col-md-6">
@@ -35,5 +35,5 @@ ViewData["Title"] = "Edit Comment";
 </div>
 
 @section Scripts {
-@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }

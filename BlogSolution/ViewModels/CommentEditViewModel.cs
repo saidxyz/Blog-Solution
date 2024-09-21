@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ViewModels/CommentEditViewModel.cs
+
+using System.ComponentModel.DataAnnotations;
 
 namespace BlogSolution.ViewModels
 {
