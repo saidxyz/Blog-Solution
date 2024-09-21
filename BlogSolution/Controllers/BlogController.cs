@@ -1,4 +1,5 @@
-﻿using BlogSolution.Models;
+﻿using BlogSolution.Data;
+using BlogSolution.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

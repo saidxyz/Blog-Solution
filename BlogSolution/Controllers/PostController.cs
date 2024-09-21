@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using BlogSolution.Authorization;
 using System.Threading.Tasks;
 using System.Linq;
+using BlogSolution.Data;
 
 namespace BlogSolution.Controllers
 {
@@ -15,12 +17,17 @@ namespace BlogSolution.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger<PostController> _logger;
+        private readonly IAuthorizationService _authorizationService;
 
-        public PostController(ApplicationDbContext context, UserManager<IdentityUser> userManager, ILogger<PostController> logger)
+        public PostController(ApplicationDbContext context, 
+                              UserManager<IdentityUser> userManager, 
+                              ILogger<PostController> logger,
+                              IAuthorizationService authorizationService)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
+            _authorizationService = authorizationService;
         }
 
         // GET: Post/Details/5
@@ -36,7 +43,7 @@ namespace BlogSolution.Controllers
                 .Include(p => p.Blog)
                 .Include(p => p.User)
                 .Include(p => p.Comments)
-                .ThenInclude(c => c.User)
+                    .ThenInclude(c => c.User)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (post == null)
             {
@@ -49,6 +56,7 @@ namespace BlogSolution.Controllers
         }
 
         // GET: Post/Create?blogId=1
+        [Authorize(Roles = "Admin,User")]
         public IActionResult Create(int blogId)
         {
             ViewBag.BlogId = blogId;
@@ -59,6 +67,7 @@ namespace BlogSolution.Controllers
         // POST: Post/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin,User")]
         public async Task<IActionResult> Create(PostCreateViewModel model)
         {
             _logger.LogDebug("Entering Post Create POST action");
@@ -108,10 +117,11 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (post.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
@@ -138,28 +148,29 @@ namespace BlogSolution.Controllers
 
             if (ModelState.IsValid)
             {
+                var post = await _context.Posts.FindAsync(id);
+                if (post == null)
+                {
+                    _logger.LogWarning("Post with id {PostId} not found during edit", id);
+                    return NotFound();
+                }
+
+                // Autorisasjon: Sjekk om brukeren er eier eller admin
+                var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
+                if (!authorizationResult.Succeeded)
+                {
+                    _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", _userManager.GetUserId(User), id);
+                    return Forbid();
+                }
+
                 try
                 {
-                    var post = await _context.Posts.FindAsync(id);
-                    if (post == null)
-                    {
-                        _logger.LogWarning("Post with id {PostId} not found during edit", id);
-                        return NotFound();
-                    }
-
-                    var user = await _userManager.GetUserAsync(User);
-                    if (post.UserId != user.Id)
-                    {
-                        _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", user.Id, id);
-                        return Forbid();
-                    }
-
                     post.Title = model.Title;
                     post.Content = model.Content;
 
                     _context.Update(post);
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Post '{PostTitle}' edited by user {UserId}", post.Title, user.Id);
+                    _logger.LogInformation("Post '{PostTitle}' edited by user {UserId}", post.Title, _userManager.GetUserId(User));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -200,10 +211,11 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (post.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to delete Post {PostId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to delete Post {PostId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
@@ -215,23 +227,26 @@ namespace BlogSolution.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var post = await _context.Posts.FindAsync(id);
+            var post = await _context.Posts
+                .Include(p => p.Comments) // Inkluderer relaterte kommentarer
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (post == null)
             {
                 _logger.LogWarning("Post with id {PostId} not found during delete", id);
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (post.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to delete Post {PostId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to delete Post {PostId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
             _context.Posts.Remove(post);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Post '{PostTitle}' deleted by user {UserId}", post.Title, user.Id);
+            _logger.LogInformation("Post '{PostTitle}' deleted by user {UserId}", post.Title, _userManager.GetUserId(User));
             return RedirectToAction("Details", "Blog", new { id = post.BlogId });
         }
 

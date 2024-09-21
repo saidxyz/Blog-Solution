@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using BlogSolution.Authorization;
 using System.Threading.Tasks;
+using System.Linq;
+using BlogSolution.Data;
 
 namespace BlogSolution.Controllers
 {
@@ -14,55 +17,17 @@ namespace BlogSolution.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ILogger<CommentController> _logger;
+        private readonly IAuthorizationService _authorizationService;
 
-        public CommentController(ApplicationDbContext context, UserManager<IdentityUser> userManager, ILogger<CommentController> logger)
+        public CommentController(ApplicationDbContext context, 
+                                 UserManager<IdentityUser> userManager, 
+                                 ILogger<CommentController> logger,
+                                 IAuthorizationService authorizationService)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
-        }
-
-        // GET: Comment/Create?postId=1
-        public IActionResult Create(int postId)
-        {
-            ViewBag.PostId = postId;
-            _logger.LogInformation("Navigated to Create Comment view for PostId {PostId}", postId);
-            return View();
-        }
-
-        // POST: Comment/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(CommentCreateViewModel model)
-        {
-            _logger.LogDebug("Entering Comment Create POST action");
-
-            if (ModelState.IsValid)
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    _logger.LogWarning("User not found while creating comment.");
-                    return RedirectToAction("Login", "Account");
-                }
-
-                var comment = new Comment
-                {
-                    Content = model.Content,
-                    PostId = model.PostId,
-                    UserId = user.Id,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _context.Add(comment);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Comment created by user {UserId} on PostId {PostId}", user.Id, model.PostId);
-                return RedirectToAction("Details", "Post", new { id = model.PostId });
-            }
-
-            _logger.LogWarning("Invalid model state for creating comment");
-            ViewBag.PostId = model.PostId;
-            return View(model);
+            _authorizationService = authorizationService;
         }
 
         // GET: Comment/Edit/5
@@ -81,14 +46,15 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (comment.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to edit Comment {CommentId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to edit Comment {CommentId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
-            var model = new CommentCreateViewModel
+            var model = new CommentEditViewModel
             {
                 Content = comment.Content,
                 PostId = comment.PostId
@@ -100,7 +66,7 @@ namespace BlogSolution.Controllers
         // POST: Comment/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, CommentCreateViewModel model)
+        public async Task<IActionResult> Edit(int id, CommentEditViewModel model)
         {
             if (id <= 0)
             {
@@ -110,27 +76,28 @@ namespace BlogSolution.Controllers
 
             if (ModelState.IsValid)
             {
+                var comment = await _context.Comments.FindAsync(id);
+                if (comment == null)
+                {
+                    _logger.LogWarning("Comment with id {CommentId} not found during edit", id);
+                    return NotFound();
+                }
+
+                // Autorisasjon: Sjekk om brukeren er eier eller admin
+                var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
+                if (!authorizationResult.Succeeded)
+                {
+                    _logger.LogWarning("User {UserId} unauthorized to edit Comment {CommentId}", _userManager.GetUserId(User), id);
+                    return Forbid();
+                }
+
                 try
                 {
-                    var comment = await _context.Comments.FindAsync(id);
-                    if (comment == null)
-                    {
-                        _logger.LogWarning("Comment with id {CommentId} not found during edit", id);
-                        return NotFound();
-                    }
-
-                    var user = await _userManager.GetUserAsync(User);
-                    if (comment.UserId != user.Id)
-                    {
-                        _logger.LogWarning("User {UserId} unauthorized to edit Comment {CommentId}", user.Id, id);
-                        return Forbid();
-                    }
-
                     comment.Content = model.Content;
 
                     _context.Update(comment);
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Comment edited by user {UserId} on PostId {PostId}", user.Id, comment.PostId);
+                    _logger.LogInformation("Comment '{CommentId}' edited by user {UserId}", comment.Id, _userManager.GetUserId(User));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -145,7 +112,7 @@ namespace BlogSolution.Controllers
                         throw;
                     }
                 }
-                return RedirectToAction("Details", "Post", new { id = model.PostId });
+                return RedirectToAction("Details", "Post", new { id = comment.PostId });
             }
 
             _logger.LogWarning("Invalid model state for editing comment");
@@ -171,10 +138,11 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (comment.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to delete Comment {CommentId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to delete Comment {CommentId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
@@ -193,19 +161,21 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            if (comment.UserId != user.Id)
+            // Autorisasjon: Sjekk om brukeren er eier eller admin
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
+            if (!authorizationResult.Succeeded)
             {
-                _logger.LogWarning("User {UserId} unauthorized to delete Comment {CommentId}", user.Id, id);
+                _logger.LogWarning("User {UserId} unauthorized to delete Comment {CommentId}", _userManager.GetUserId(User), id);
                 return Forbid();
             }
 
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Comment deleted by user {UserId} on PostId {PostId}", user.Id, comment.PostId);
+            _logger.LogInformation("Comment '{CommentId}' deleted by user {UserId}", comment.Id, _userManager.GetUserId(User));
             return RedirectToAction("Details", "Post", new { id = comment.PostId });
         }
 
+        // Hjelpe-metode for å sjekke om en kommentar eksisterer
         private bool CommentExists(int id)
         {
             return _context.Comments.Any(e => e.Id == id);
