@@ -1,0 +1,17 @@
+﻿@model BlogSolution.Models.Comment
+
+@{
+    ViewData["Title"] = "Comment Details";
+}
+
+<h1>Comment Details</h1>
+
+<p>@Model.Content</p>
+<p>Created by: @Model.User?.UserName</p>
+<p>Created at: @Model.CreatedAt.ToLocalTime()</p>
+
+<hr />
+
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a> |
+<a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">Delete</a> |
+<a asp-controller="Post" asp-action="Details" asp-route-id="@Model.PostId" class="btn btn-secondary">Back to Post</a>

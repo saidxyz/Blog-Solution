@@ -1,0 +1,28 @@
+﻿@model BlogSolution.Models.Comment
+
+@{
+    ViewData["Title"] = "Delete Comment";
+}
+
+<h1>Delete Comment</h1>
+
+<h3>Are you sure you want to delete this?</h3>
+<div>
+    <h4>Comment</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Content)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Content)
+        </dd>
+    </dl>
+    
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="PostId" />
+        <input type="submit" value="Delete" class="btn btn-danger" /> |
+        <a asp-controller="Post" asp-action="Details" asp-route-id="@Model.PostId" class="btn btn-secondary">Back to Post</a>
+    </form>
+</div>

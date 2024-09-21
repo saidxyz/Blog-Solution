@@ -1,0 +1,36 @@
+﻿@model IEnumerable<BlogSolution.Models.Blog>
+
+@{
+ViewData["Title"] = "Blogs";
+}
+
+<h1>Blogs</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Create New Blog</a>
+</p>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Title</th>
+        <th>Description</th>
+        <th>Owner</th>
+        <th>Created At</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model) {
+    <tr>
+        <td>@item.Title</td>
+        <td>@item.Description</td>
+        <td>@item.User.UserName</td>
+        <td>@item.CreatedAt.ToString("g")</td>
+        <td>
+            <a asp-action="Details" asp-route-id="@item.Id">View</a>
+        </td>
+    </tr>
+    }
+    </tbody>
+</table>

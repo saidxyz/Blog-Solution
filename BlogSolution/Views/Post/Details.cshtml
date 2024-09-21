@@ -1,0 +1,48 @@
+﻿@model BlogSolution.Models.Post
+
+@{
+ViewData["Title"] = "Post Details";
+}
+
+<h1>@Model.Title</h1>
+
+<p>@Model.Content</p>
+<p>Created by: @Model.User?.UserName</p>
+<p>Created at: @Model.CreatedAt.ToLocalTime()</p>
+
+<hr />
+
+<h2>Comments</h2>
+@if (Model.Comments != null && Model.Comments.Any())
+{
+<table class="table">
+    <thead>
+    <tr>
+        <th>Content</th>
+        <th>Author</th>
+        <th>Created At</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var comment in Model.Comments.OrderByDescending(c => c.CreatedAt))
+    {
+    <tr>
+        <td>@comment.Content</td>
+        <td>@comment.User?.UserName</td>
+        <td>@comment.CreatedAt.ToLocalTime()</td>
+        <td>
+            <a asp-controller="Comment" asp-action="Edit" asp-route-id="@comment.Id" class="btn btn-primary btn-sm">Edit</a> |
+            <a asp-controller="Comment" asp-action="Delete" asp-route-id="@comment.Id" class="btn btn-danger btn-sm">Delete</a>
+        </td>
+    </tr>
+    }
+    </tbody>
+</table>
+}
+else
+{
+<p>No comments yet. Be the first to comment!</p>
+}
+
+<a asp-controller="Comment" asp-action="Create" asp-route-postId="@Model.Id" class="btn btn-primary">Create New Comment</a>

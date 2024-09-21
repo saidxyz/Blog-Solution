@@ -1,0 +1,41 @@
+﻿@model BlogSolution.Models.Blog
+
+@{
+    ViewData["Title"] = "Blog Details";
+}
+
+<h1>@Model.Title</h1>
+<p>@Model.Description</p>
+<p>Created by: @Model.User?.UserName</p>
+<p>Created at: @Model.CreatedAt.ToLocalTime()</p>
+
+<hr />
+
+<h2>Posts</h2>
+<table class="table">
+    <thead>
+    <tr>
+        <th>Title</th>
+        <th>Content</th>
+        <th>Created At</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var post in Model.Posts)
+    {
+        <tr>
+            <td>@post.Title</td>
+            <td>@post.Content</td>
+            <td>@post.CreatedAt.ToLocalTime()</td>
+            <td>
+                <a asp-controller="Post" asp-action="Details" asp-route-id="@post.Id" class="btn btn-info btn-sm">View</a> |
+                <a asp-controller="Post" asp-action="Edit" asp-route-id="@post.Id" class="btn btn-primary btn-sm">Edit</a> |
+                <a asp-controller="Post" asp-action="Delete" asp-route-id="@post.Id" class="btn btn-danger btn-sm">Delete</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<a asp-controller="Post" asp-action="Create" asp-route-blogId="@Model.Id" class="btn btn-primary">Create New Post</a>
