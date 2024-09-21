@@ -1,14 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace BlogSolution.Models
+namespace BlogSolution.ViewModels
 {
     public class CommentCreateViewModel
     {
         [Required]
-        [StringLength(500)]
+        [Display(Name = "Comment")]
         public string Content { get; set; }
 
-        [Required]
         public int PostId { get; set; }
     }
 }

@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using BlogSolution.Models;
 using Microsoft.AspNetCore.Identity;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
 namespace BlogSolution.Authorization
 {

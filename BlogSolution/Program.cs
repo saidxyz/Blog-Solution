@@ -77,9 +77,10 @@ async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager, UserManager<Ide
             await userManager.AddToRoleAsync(newAdmin, "Admin");
         }
     }
+
+    // Valgfritt: Tilordne "User" rollen til andre brukere eller opprett nye brukere med denne rollen
 }
 
-// Konfigurer HTTP-request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

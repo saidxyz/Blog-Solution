@@ -1,18 +1,17 @@
-﻿using BlogSolution.Models;
-using BlogSolution.ViewModels; // Legg til denne linjen
+﻿using BlogSolution.Data;
+using BlogSolution.Models;
+using BlogSolution.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using BlogSolution.Authorization;
 using System.Threading.Tasks;
 using System.Linq;
-using BlogSolution.Data;
 
 namespace BlogSolution.Controllers
 {
-    [Authorize]
+    [Authorize] // Ingen rollebegrensning
     public class CommentController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -31,6 +30,47 @@ namespace BlogSolution.Controllers
             _authorizationService = authorizationService;
         }
 
+        // GET: Comment/Create
+        public IActionResult Create(int postId)
+        {
+            var model = new CommentCreateViewModel
+            {
+                PostId = postId
+            };
+            return View(model);
+        }
+
+        // POST: Comment/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(CommentCreateViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found while creating comment.");
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var comment = new Comment
+                {
+                    Content = model.Content,
+                    PostId = model.PostId,
+                    UserId = user.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Comments.Add(comment);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Comment created by user {UserId} on Post {PostId}", user.Id, model.PostId);
+                return RedirectToAction("Details", "Post", new { id = model.PostId });
+            }
+
+            return View(model);
+        }
+
         // GET: Comment/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -47,7 +87,6 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            // Autorisasjon: Sjekk om brukeren er eier eller admin
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
             if (!authorizationResult.Succeeded)
             {
@@ -84,7 +123,6 @@ namespace BlogSolution.Controllers
                     return NotFound();
                 }
 
-                // Autorisasjon: Sjekk om brukeren er eier eller admin
                 var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
                 if (!authorizationResult.Succeeded)
                 {
@@ -95,7 +133,6 @@ namespace BlogSolution.Controllers
                 try
                 {
                     comment.Content = model.Content;
-
                     _context.Update(comment);
                     await _context.SaveChangesAsync();
                     _logger.LogInformation("Comment '{CommentId}' edited by user {UserId}", comment.Id, _userManager.GetUserId(User));
@@ -139,7 +176,6 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            // Autorisasjon: Sjekk om brukeren er eier eller admin
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
             if (!authorizationResult.Succeeded)
             {
@@ -162,7 +198,6 @@ namespace BlogSolution.Controllers
                 return NotFound();
             }
 
-            // Autorisasjon: Sjekk om brukeren er eier eller admin
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, comment, "IsCommentOwner");
             if (!authorizationResult.Succeeded)
             {

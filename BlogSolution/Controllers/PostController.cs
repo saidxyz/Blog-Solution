@@ -20,9 +20,9 @@ namespace BlogSolution.Controllers
         private readonly IAuthorizationService _authorizationService;
 
         public PostController(ApplicationDbContext context, 
-                              UserManager<IdentityUser> userManager, 
-                              ILogger<PostController> logger,
-                              IAuthorizationService authorizationService)
+            UserManager<IdentityUser> userManager, 
+            ILogger<PostController> logger,
+            IAuthorizationService authorizationService)
         {
             _context = context;
             _userManager = userManager;
@@ -56,7 +56,7 @@ namespace BlogSolution.Controllers
         }
 
         // GET: Post/Create?blogId=1
-        [Authorize(Roles = "Admin,User")]
+        [Authorize]
         public IActionResult Create(int blogId)
         {
             ViewBag.BlogId = blogId;
@@ -67,7 +67,7 @@ namespace BlogSolution.Controllers
         // POST: Post/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,User")]
+        [Authorize]
         public async Task<IActionResult> Create(PostCreateViewModel model)
         {
             _logger.LogDebug("Entering Post Create POST action");
@@ -100,24 +100,59 @@ namespace BlogSolution.Controllers
             ViewBag.BlogId = model.BlogId;
             return View(model);
         }
-
-        // GET: Post/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+    // GET: Post/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) 
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Edit action called with null id");
-                return NotFound();
-            }
+            _logger.LogWarning("Edit action called with null id");
+            return NotFound();
+        }
 
+        var post = await _context.Posts.FindAsync(id);
+        if (post == null)
+        {
+            _logger.LogWarning("Post with id {PostId} not found", id); 
+            return NotFound(); 
+        }
+
+        var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
+        if (!authorizationResult.Succeeded)
+        {
+            _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", _userManager.GetUserId(User), id);
+            return Forbid();
+        }
+
+        var model = new PostCreateViewModel
+        {
+            Title = post.Title,
+            Content = post.Content,
+            BlogId = post.BlogId
+        };
+
+        return View(model);
+    }
+
+    // POST: Post/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, PostCreateViewModel model)
+    {
+        if (id <= 0)
+        { 
+            _logger.LogWarning("Edit action called with invalid id {PostId}", id);
+            return NotFound();
+        }
+
+        if (ModelState.IsValid)
+        {
             var post = await _context.Posts.FindAsync(id);
             if (post == null)
             {
-                _logger.LogWarning("Post with id {PostId} not found", id);
+                _logger.LogWarning("Post with id {PostId} not found during edit", id);
                 return NotFound();
             }
 
-            // Autorisasjon: Sjekk om brukeren er eier eller admin
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
             if (!authorizationResult.Succeeded)
             {
@@ -125,72 +160,35 @@ namespace BlogSolution.Controllers
                 return Forbid();
             }
 
-            var model = new PostCreateViewModel
+            try
             {
-                Title = post.Title,
-                Content = post.Content,
-                BlogId = post.BlogId
-            };
+                post.Title = model.Title;
+                post.Content = model.Content;
 
-            return View(model);
-        }
-
-        // POST: Post/Edit/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, PostCreateViewModel model)
-        {
-            if (id <= 0)
-            {
-                _logger.LogWarning("Edit action called with invalid id {PostId}", id);
-                return NotFound();
+                _context.Update(post);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Post '{PostTitle}' edited by user {UserId}", post.Title, _userManager.GetUserId(User));
             }
-
-            if (ModelState.IsValid)
+            catch (DbUpdateConcurrencyException)
             {
-                var post = await _context.Posts.FindAsync(id);
-                if (post == null)
+                if (!PostExists(id))
                 {
-                    _logger.LogWarning("Post with id {PostId} not found during edit", id);
+                    _logger.LogWarning("Post with id {PostId} does not exist during concurrency check", id);
                     return NotFound();
                 }
-
-                // Autorisasjon: Sjekk om brukeren er eier eller admin
-                var authorizationResult = await _authorizationService.AuthorizeAsync(User, post, "IsPostOwner");
-                if (!authorizationResult.Succeeded)
+                else
                 {
-                    _logger.LogWarning("User {UserId} unauthorized to edit Post {PostId}", _userManager.GetUserId(User), id);
-                    return Forbid();
+                    _logger.LogError("Concurrency error while editing Post {PostId}", id);
+                    throw;
                 }
-
-                try
-                {
-                    post.Title = model.Title;
-                    post.Content = model.Content;
-
-                    _context.Update(post);
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("Post '{PostTitle}' edited by user {UserId}", post.Title, _userManager.GetUserId(User));
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!PostExists(id))
-                    {
-                        _logger.LogWarning("Post with id {PostId} does not exist during concurrency check", id);
-                        return NotFound();
-                    }
-                    else
-                    {
-                        _logger.LogError("Concurrency error while editing Post {PostId}", id);
-                        throw;
-                    }
-                }
-                return RedirectToAction("Details", "Blog", new { id = model.BlogId });
             }
-
-            _logger.LogWarning("Invalid model state for editing post");
-            return View(model);
+            return RedirectToAction("Details", "Blog", new { id = model.BlogId });
         }
+
+        _logger.LogWarning("Invalid model state for editing post");
+        return View(model);
+    }
+
 
         // GET: Post/Delete/5
         public async Task<IActionResult> Delete(int? id)
