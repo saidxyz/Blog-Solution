@@ -24,7 +24,7 @@ namespace BlogSolution.Tests.Controllers
         private readonly Mock<ILogger<BlogController>> _loggerMock;
         private readonly Mock<IAuthorizationService> _authorizationServiceMock;
         private readonly DbContextOptions<ApplicationDbContext> _options;
-
+        
         public BlogControllerTests()
         {
             _options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -137,7 +137,116 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(blog.Id, model.Id);
             Assert.Equal(blog.Title, model.Title);
         }
+        
+        /// <summary>
+        /// Tester at Create (POST) med gyldig modell og bruker oppretter en blogg og omdirigerer til Index.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_ValidModel_UserFound_CreatesBlogAndRedirects()
+        {
+            // Arrange
+            var user = new IdentityUser
+            {
+                Id = "user-id",
+                UserName = "testuser",
+                Email = "testuser@example.com"
+            };
 
+            // Mock UserManager to return the user
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync(user);
+
+            var model = new Models.BlogCreateViewModel
+            {
+                Title = "Test Blog",
+                Description = "En testblogg"
+            };
+
+            var controller = new BlogController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = GetUserPrincipal(user.Id, user.UserName) }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal(nameof(BlogController.Index), redirectResult.ActionName);
+
+            // Verify that the blog was added to the database
+            var blog = await _context.Blogs.FirstOrDefaultAsync(b => b.Title == "Test Blog");
+            Assert.NotNull(blog);
+            Assert.Equal("En testblogg", blog.Description); // Updated assertion
+            Assert.Equal(user.Id, blog.UserId);
+        }
+        
+        /// <summary>
+        /// Tester at Create (POST) med gyldig modell men bruker ikke funnet omdirigerer til Login.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_ValidModel_UserNotFound_RedirectsToLogin()
+        {
+            // Arrange
+            // Mock UserManager til å returnere null (bruker ikke funnet)
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync((IdentityUser)null);
+
+            var model = new Models.BlogCreateViewModel
+            {
+                Title = "Test Blog",
+                Description = "En testblogg"
+            };
+
+            var controller = new BlogController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal() }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Login", redirectResult.ActionName);
+            Assert.Equal("Account", redirectResult.ControllerName);
+        }
+        
+        /// <summary>
+        /// Tester at Create (POST) med ugyldig modell returnerer View med modellen.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_InvalidModel_ReturnsViewWithModel()
+        {
+            // Arrange
+            var controller = new BlogController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Legg til ModelState-feil for å simulere ugyldig modell
+            controller.ModelState.AddModelError("Title", "Tittel er påkrevd");
+
+            var model = new Models.BlogCreateViewModel
+            {
+                Description = "En testblogg uten tittel"
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var returnedModel = Assert.IsType<BlogSolution.Models.BlogCreateViewModel>(viewResult.Model);
+            Assert.Equal(model.Description, returnedModel.Description);
+        }
         [Fact]
         public async Task Details_NullId_ReturnsNotFound()
         {

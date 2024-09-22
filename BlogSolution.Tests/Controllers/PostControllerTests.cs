@@ -949,10 +949,8 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
     Assert.Equal("Details", redirectResult.ActionName);
     Assert.Equal("Blog", redirectResult.ControllerName);
     Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
-
-
+    
 }
-
 
         /// <summary>
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, kaster DbUpdateConcurrencyException.
@@ -1019,6 +1017,244 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
 
 
         }
+        
+        /// <summary>
+        /// Tests that Create (POST) with a valid model and user found creates a post and redirects to Blog Details.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_ValidModel_UserFound_CreatesPostAndRedirects()
+        {
+            // Arrange
+            var user = new IdentityUser
+            {
+                Id = "user-id",
+                UserName = "testuser",
+                Email = "testuser@example.com"
+            };
+
+            // Add the user to the context
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            // Mock UserManager to return the user
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync(user);
+
+            // Add a blog to the context
+            var blog = new Blog
+            {
+                Id = 1,
+                Title = "Test Blog",
+                Description = "Test Blog Description",
+                UserId = user.Id
+            };
+            _context.Blogs.Add(blog);
+            await _context.SaveChangesAsync();
+
+            var model = new PostCreateViewModel
+            {
+                Title = "Test Post",
+                Content = "Test Content",
+                BlogId = blog.Id
+            };
+
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = GetUserPrincipal(user.Id, user.UserName) }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Details", redirectResult.ActionName);
+            Assert.Equal("Blog", redirectResult.ControllerName);
+            Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
+
+            // Verify that the post was added to the database
+            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Title == "Test Post");
+            Assert.NotNull(post);
+            Assert.Equal("Test Content", post.Content);
+            Assert.Equal(blog.Id, post.BlogId);
+            Assert.Equal(user.Id, post.UserId);
+        }
+
+
+        /// <summary>
+        /// Tests that Create (POST) with a valid model but user not found redirects to Login.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_ValidModel_UserNotFound_RedirectsToLogin()
+        {
+            // Arrange
+            // Mock UserManager to return null
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync((IdentityUser)null);
+
+            var model = new PostCreateViewModel
+            {
+                Title = "Test Post",
+                Content = "Test Content",
+                BlogId = 1
+            };
+
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object, _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal() }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Login", redirectResult.ActionName);
+            Assert.Equal("Account", redirectResult.ControllerName);
+        }
+
+        /// <summary>
+        /// Tests that Create (POST) with an invalid model returns the view with the model.
+        /// </summary>
+        [Fact]
+        public async Task Create_Post_InvalidModel_ReturnsViewWithModel()
+        {
+            // Arrange
+            var model = new PostCreateViewModel
+            {
+                Title = "", // Invalid because Title is required
+                Content = "Test Content",
+                BlogId = 1
+            };
+
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Simulate invalid ModelState
+            controller.ModelState.AddModelError("Title", "Title is required");
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var returnedModel = Assert.IsType<PostCreateViewModel>(viewResult.Model);
+            Assert.Equal(model, returnedModel);
+            Assert.Equal(model.BlogId, viewResult.ViewData["BlogId"]);
+        }
+        [Fact]
+        public async Task Details_NullId_ReturnsNotFound()
+        {
+            // Arrange
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Act
+            var result = await controller.Details(null);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Details_PostNotFound_ReturnsNotFound()
+        {
+            // Arrange
+            int nonExistentPostId = 999;
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Act
+            var result = await controller.Details(nonExistentPostId);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Details_PostFound_ReturnsViewWithPost()
+        {
+            // Arrange
+            var user = new IdentityUser
+            {
+                Id = "user-id",
+                UserName = "testuser",
+                Email = "testuser@example.com"
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Description = "Test Blog Description",
+                UserId = user.Id
+            };
+            _context.Blogs.Add(blog);
+            await _context.SaveChangesAsync();
+
+            var post = new Post
+            {
+                Title = "Test Post",
+                Content = "Test Content",
+                BlogId = blog.Id,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Posts.Add(post);
+            await _context.SaveChangesAsync();
+
+            // Adding comments to the post
+            var comment = new Comment
+            {
+                Content = "Test Comment",
+                PostId = post.Id,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Comments.Add(comment);
+            await _context.SaveChangesAsync();
+
+            var controller = new PostController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Act
+            var result = await controller.Details(post.Id);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsType<Post>(viewResult.Model);
+            Assert.Equal(post.Id, model.Id);
+            Assert.Equal(post.Title, model.Title);
+            Assert.NotNull(model.Blog);
+            Assert.Equal(blog.Id, model.Blog.Id);
+            Assert.NotNull(model.User);
+            Assert.Equal(user.Id, model.User.Id);
+            Assert.Single(model.Comments);
+            Assert.Equal(comment.Content, model.Comments.First().Content);
+        }
+        
 
         /// <summary>
         /// Rydd opp etter tester ved å slette databasen.

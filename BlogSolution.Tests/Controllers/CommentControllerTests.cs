@@ -220,13 +220,17 @@ namespace BlogSolution.Tests.Controllers
         }
 
         /// <summary>
-        /// Tester at Edit (GET) med null id returnerer NotFound.
+        /// Test that Edit action with null id returns NotFound.
         /// </summary>
         [Fact]
         public async Task Edit_Get_NullId_ReturnsNotFound()
         {
             // Arrange
-            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+            var controller = new CommentController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object);
 
             // Act
             var result = await controller.Edit(null);
@@ -234,7 +238,136 @@ namespace BlogSolution.Tests.Controllers
             // Assert
             Assert.IsType<NotFoundResult>(result);
         }
+        /// <summary>
+        /// Test that Edit action with non-existent comment id returns NotFound.
+        /// </summary>
+        [Fact]
+        public async Task Edit_Get_CommentNotFound_ReturnsNotFound()
+        {
+            // Arrange
+            int nonExistentCommentId = 999;
+            var controller = new CommentController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object);
 
+            // Act
+            var result = await controller.Edit(nonExistentCommentId);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+        }
+        /// <summary>
+        /// Test that Edit action with unauthorized user returns Forbid.
+        /// </summary>
+        [Fact]
+        public async Task Edit_Get_UnauthorizedUser_ReturnsForbid()
+        {
+            // Arrange
+            var ownerUser = new IdentityUser
+            {
+                Id = "owner-user-id",
+                UserName = "owneruser",
+                Email = "owner@example.com"
+            };
+            var otherUser = new IdentityUser
+            {
+                Id = "other-user-id",
+                UserName = "otheruser",
+                Email = "other@example.com"
+            };
+            _context.Users.Add(ownerUser);
+            _context.Users.Add(otherUser);
+            await _context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Id = 1,
+                Content = "Original Comment",
+                PostId = 1,
+                UserId = ownerUser.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Comments.Add(comment);
+            await _context.SaveChangesAsync();
+
+            // Mock authorization to fail
+            _authorizationServiceMock.Setup(a =>
+                    a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), comment, "IsCommentOwner"))
+                .ReturnsAsync(AuthorizationResult.Failed());
+
+            var controller = new CommentController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = GetUserPrincipal(otherUser.Id, otherUser.UserName) }
+                }
+            };
+
+            // Act
+            var result = await controller.Edit(comment.Id);
+
+            // Assert
+            Assert.IsType<ForbidResult>(result);
+        }
+        /// <summary>
+        /// Test that Edit action with authorized user returns View with model.
+        /// </summary>
+        [Fact]
+        public async Task Edit_Get_AuthorizedUser_ReturnsViewWithModel()
+        {
+            // Arrange
+            var user = new IdentityUser
+            {
+                Id = "user-id",
+                UserName = "testuser",
+                Email = "testuser@example.com"
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Id = 1,
+                Content = "Original Comment",
+                PostId = 1,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Comments.Add(comment);
+            await _context.SaveChangesAsync();
+
+            // Mock authorization to succeed
+            _authorizationServiceMock.Setup(a =>
+                    a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), comment, "IsCommentOwner"))
+                .ReturnsAsync(AuthorizationResult.Success());
+
+            var controller = new CommentController(
+                _context,
+                _userManagerMock.Object,
+                _loggerMock.Object,
+                _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = GetUserPrincipal(user.Id, user.UserName) }
+                }
+            };
+
+            // Act
+            var result = await controller.Edit(comment.Id);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsType<CommentEditViewModel>(viewResult.Model);
+            Assert.Equal(comment.Content, model.Content);
+            Assert.Equal(comment.PostId, model.PostId);
+        }
         /// <summary>
         /// Tester at Edit (GET) med ugyldig id returnerer NotFound.
         /// </summary>
@@ -945,7 +1078,120 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
             var existingComment = await _context.Comments.FindAsync(comment.Id);
             Assert.Null(existingComment);
         }
+        
+        
+        [Fact]
+        public async Task Create_Post_ValidModel_UserFound_CreatesCommentAndRedirects()
+        {
+            // Arrange
+            var user = new IdentityUser
+            {
+                Id = "user-id",
+                UserName = "testuser",
+                Email = "testuser@example.com"
+            };
 
+            // Mock UserManager to return the user
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync(user);
+
+            // Add necessary data to the context
+            var post = new Post
+            {
+                Id = 1,
+                Title = "Test Post",
+                Content = "Test Content",
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Posts.Add(post);
+            await _context.SaveChangesAsync();
+
+            var model = new CommentCreateViewModel
+            {
+                Content = "Test Comment",
+                PostId = post.Id
+            };
+
+            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = GetUserPrincipal(user.Id, user.UserName) }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Details", redirectResult.ActionName);
+            Assert.Equal("Post", redirectResult.ControllerName);
+            Assert.Equal(post.Id, redirectResult.RouteValues["id"]);
+
+            // Verify that the comment was added to the database
+            var comment = await _context.Comments.FirstOrDefaultAsync(c => c.Content == "Test Comment");
+            Assert.NotNull(comment);
+            Assert.Equal(user.Id, comment.UserId);
+            Assert.Equal(post.Id, comment.PostId);
+        }
+
+        [Fact]
+        public async Task Create_Post_ValidModel_UserNotFound_RedirectsToLogin()
+        {
+            // Arrange
+            // Mock UserManager to return null
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync((IdentityUser)null);
+
+            var model = new CommentCreateViewModel
+            {
+                Content = "Test Comment",
+                PostId = 1
+            };
+
+            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal() }
+                }
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Login", redirectResult.ActionName);
+            Assert.Equal("Account", redirectResult.ControllerName);
+        }
+
+        [Fact]
+        public async Task Create_Post_InvalidModel_ReturnsViewWithModel()
+        {
+            // Arrange
+            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+
+            // Simulate invalid ModelState
+            controller.ModelState.AddModelError("Content", "Content is required");
+
+            var model = new CommentCreateViewModel
+            {
+                Content = "", // Invalid because content is required
+                PostId = 1
+            };
+
+            // Act
+            var result = await controller.Create(model);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var returnedModel = Assert.IsType<CommentCreateViewModel>(viewResult.Model);
+            Assert.Equal(model.PostId, returnedModel.PostId);
+            Assert.Equal(model.Content, returnedModel.Content);
+        }
 
         /// <summary>
         /// Hjelpe-metode for å sjekke om en kommentar eksisterer.
