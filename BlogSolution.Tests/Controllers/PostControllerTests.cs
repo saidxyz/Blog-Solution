@@ -63,9 +63,9 @@ namespace BlogSolution.Tests.Controllers
             return userClaims;
         }
 
-        /// <summary>
+       
         /// Tester at Details (GET) med gyldig id returnerer View med korrekt modell.
-        /// </summary>
+        
         [Fact]
         public async Task Details_Get_ValidId_ReturnsViewWithPost()
         {
@@ -126,9 +126,9 @@ namespace BlogSolution.Tests.Controllers
         }
 
 
-        /// <summary>
+       
         /// Tester at Create (GET) returnerer View med korrekt BlogId.
-        /// </summary>
+        
         [Fact]
         public void Create_Get_ReturnsViewWithBlogId()
         {
@@ -144,9 +144,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(blogId, viewResult.ViewData["BlogId"]);
         }
 
-        /// <summary>
+       
         /// Tester at Create (POST) med gyldig modell oppretter en post og omdirigerer til Blog Details.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_RedirectsToBlogDetails()
         {
@@ -205,10 +205,8 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(user.Id, createdPost.UserId);
             Assert.Equal(blog.Id, createdPost.BlogId);
         }
-
-        /// <summary>
+        
         /// Tester at Create (POST) med ugyldig modell returnerer View med samme modell.
-        /// </summary>
         [Fact]
         public async Task Create_Post_InvalidModel_ReturnsView()
         {
@@ -232,9 +230,8 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(1, (int)viewResult.ViewData["BlogId"]);
         }
 
-        /// <summary>
+
         /// Tester at Edit (GET) med gyldig id og autorisert bruker returnerer View med korrekt modell.
-        /// </summary>
         [Fact]
         public async Task Edit_Get_ValidId_Authorized_ReturnsViewWithModel()
         {
@@ -292,25 +289,26 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(post.BlogId, model.BlogId);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (GET) med null id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
-        public async Task Edit_Get_NullId_ReturnsNotFound()
+        public async Task Edit_Get_PostNotFound_ReturnsNotFound()
         {
             // Arrange
             var controller = new PostController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+            int nonExistentPostId = 999;
 
             // Act
-            var result = await controller.Edit(null);
+            var result = await controller.Edit(nonExistentPostId);
 
             // Assert
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (GET) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_InvalidId_ReturnsNotFound()
         {
@@ -325,9 +323,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_ValidId_Unauthorized_ReturnsForbid()
         {
@@ -388,9 +386,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<ForbidResult>(result);
         }
 
-        /// <summary>
+       
 /// Tester at Edit (POST) med gyldig modell oppdaterer posten og omdirigerer til Blog Details.
-/// </summary>
+
 [Fact]
 public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
 {
@@ -459,9 +457,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
     Assert.Equal(model.Content, updatedPost.Content);
 }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med ugyldig modell returnerer View med samme modell.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_InvalidModel_ReturnsView()
         {
@@ -484,9 +482,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.Equal(model, viewResult.Model);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_ConcurrencyException_RedirectsToDetails()
         {
@@ -558,9 +556,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
 
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med gyldig id og autorisert bruker returnerer View med korrekt modell.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_ValidId_Authorized_ReturnsViewWithPost()
         {
@@ -617,9 +615,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.Equal(post.Title, model.Title);
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med null id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_NullId_ReturnsNotFound()
         {
@@ -633,9 +631,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_InvalidId_ReturnsNotFound()
         {
@@ -650,9 +648,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
         {
@@ -713,9 +711,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.IsType<ForbidResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id og autorisert bruker sletter posten og omdirigerer til Blog Details.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_ValidId_Authorized_RedirectsToBlogDetails()
         {
@@ -776,9 +774,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.Null(deletedPost);
         }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_InvalidId_ReturnsNotFound()
         {
@@ -793,9 +791,9 @@ public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
 /// Tests that DeleteConfirmed (POST) with a valid id but an unauthorized user returns Forbid.
-/// </summary>
+
 [Fact]
 public async Task DeleteConfirmed_Post_ValidId_Unauthorized_ReturnsForbid()
 {
@@ -869,9 +867,9 @@ public async Task DeleteConfirmed_Post_ValidId_Unauthorized_ReturnsForbid()
     var existingPost = await _context.Posts.FindAsync(post.Id);
     Assert.NotNull(existingPost);
 } 
-        /// <summary>
+       
         /// Tests that Edit (POST) with a valid model but a concurrency conflict throws DbUpdateConcurrencyException.
-/// </summary>
+
 [Fact]
 public async Task Edit_Post_ConcurrencyException_ThrowsException()
 {
@@ -952,9 +950,9 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
     
 }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, kaster DbUpdateConcurrencyException.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_ConcurrencyException_ThrowsException()
         {
@@ -1018,9 +1016,9 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
 
         }
         
-        /// <summary>
+       
         /// Tests that Create (POST) with a valid model and user found creates a post and redirects to Blog Details.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_UserFound_CreatesPostAndRedirects()
         {
@@ -1088,9 +1086,9 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
         }
 
 
-        /// <summary>
+       
         /// Tests that Create (POST) with a valid model but user not found redirects to Login.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_UserNotFound_RedirectsToLogin()
         {
@@ -1126,9 +1124,9 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
             Assert.Equal("Account", redirectResult.ControllerName);
         }
 
-        /// <summary>
+       
         /// Tests that Create (POST) with an invalid model returns the view with the model.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_InvalidModel_ReturnsViewWithModel()
         {
@@ -1255,10 +1253,11 @@ public async Task Edit_Post_ConcurrencyException_ThrowsException()
             Assert.Equal(comment.Content, model.Comments.First().Content);
         }
         
+        
 
-        /// <summary>
+       
         /// Rydd opp etter tester ved å slette databasen.
-        /// </summary>
+        
         public void Dispose()
         {
             _context.Dispose();

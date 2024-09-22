@@ -42,9 +42,9 @@ namespace BlogSolution.Tests.Controllers
             _context = new ApplicationDbContext(options);
         }
 
-        /// <summary>
+       
         /// Hjelpemetode for å simulere en autentisert bruker.
-        /// </summary>
+        
         private ClaimsPrincipal GetUserPrincipal(string userId, string userName)
         {
             var userClaims = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
@@ -56,9 +56,9 @@ namespace BlogSolution.Tests.Controllers
             return userClaims;
         }
 
-        /// <summary>
+       
         /// Tester at Create (GET) returnerer riktig View med korrekt modell.
-        /// </summary>
+        
         [Fact]
         public void Create_Get_ReturnsViewWithCorrectModel()
         {
@@ -75,9 +75,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(postId, model.PostId);
         }
 
-         /// <summary>
+        
         /// Tester at Create (POST) med gyldig modell oppretter en kommentar og omdirigerer til Post Details.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_RedirectsToPostDetails()
         {
@@ -137,9 +137,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.NotEqual(0, comment.Id); // Sikre at Id er tildelt
         }
 
-        /// <summary>
+       
         /// Tester at Create (POST) med ugyldig modell returnerer View med samme modell.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_InvalidModel_ReturnsView()
         {
@@ -161,9 +161,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(model, viewResult.Model);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (GET) med gyldig id og autorisert bruker returnerer View med korrekt modell.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_ValidId_Authorized_ReturnsViewWithCorrectModel()
         {
@@ -219,9 +219,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(comment.PostId, model.PostId);
         }
 
-        /// <summary>
+       
         /// Test that Edit action with null id returns NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_NullId_ReturnsNotFound()
         {
@@ -238,9 +238,9 @@ namespace BlogSolution.Tests.Controllers
             // Assert
             Assert.IsType<NotFoundResult>(result);
         }
-        /// <summary>
+       
         /// Test that Edit action with non-existent comment id returns NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_CommentNotFound_ReturnsNotFound()
         {
@@ -258,9 +258,9 @@ namespace BlogSolution.Tests.Controllers
             // Assert
             Assert.IsType<NotFoundResult>(result);
         }
-        /// <summary>
+       
         /// Test that Edit action with unauthorized user returns Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_UnauthorizedUser_ReturnsForbid()
         {
@@ -315,9 +315,9 @@ namespace BlogSolution.Tests.Controllers
             // Assert
             Assert.IsType<ForbidResult>(result);
         }
-        /// <summary>
+       
         /// Test that Edit action with authorized user returns View with model.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_AuthorizedUser_ReturnsViewWithModel()
         {
@@ -368,9 +368,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(comment.Content, model.Content);
             Assert.Equal(comment.PostId, model.PostId);
         }
-        /// <summary>
+       
         /// Tester at Edit (GET) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_InvalidId_ReturnsNotFound()
         {
@@ -385,9 +385,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Get_ValidId_Unauthorized_ReturnsForbid()
         {
@@ -440,9 +440,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<ForbidResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med gyldig modell oppdaterer kommentaren og omdirigerer til Post Details.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_ValidModel_Authorized_RedirectsToPostDetails()
         {
@@ -508,9 +508,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal("Updated Comment", updatedComment.Content);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med ugyldig modell returnerer View med samme modell.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_InvalidModel_ReturnsView()
         {
@@ -532,9 +532,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(model, viewResult.Model);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med gyldig modell, men uautorisert bruker returnerer Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_ValidModel_Unauthorized_ReturnsForbid()
         {
@@ -597,9 +597,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal("Original Comment", existingComment.Content);
         }
 
-        /// <summary>
+       
         /// Tester at Edit (POST) med gyldig modell, men kommentar ikke funnet returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Edit_Post_ValidModel_CommentNotFound_ReturnsNotFound()
         {
@@ -645,9 +645,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
 /// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, returnerer NotFound.
-/// </summary>
+
 [Fact]
 public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
 {
@@ -715,9 +715,9 @@ public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
 }
 
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med gyldig id og autorisert bruker returnerer View med korrekt modell.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_ValidId_Authorized_ReturnsViewWithCorrectModel()
         {
@@ -774,9 +774,9 @@ public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
             Assert.Equal(comment.PostId, model.PostId);
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med null id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_NullId_ReturnsNotFound()
         {
@@ -790,9 +790,9 @@ public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at Delete (GET) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task Delete_Get_InvalidId_ReturnsNotFound()
         {
@@ -807,9 +807,8 @@ public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
             Assert.IsType<NotFoundResult>(result);
         }
 
-/// <summary>
 /// Tester at Delete (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
-/// </summary>
+
 [Fact]
 public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
 {
@@ -875,9 +874,9 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
 }
 
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id og autorisert bruker sletter kommentaren og omdirigerer til Post Details.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_ValidId_Authorized_RedirectsToPostDetails()
         {
@@ -937,9 +936,9 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
             Assert.Null(deletedComment);
         }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med ugyldig id returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_InvalidId_ReturnsNotFound()
         {
@@ -954,9 +953,9 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_ValidId_Unauthorized_ReturnsForbid()
         {
@@ -1013,12 +1012,12 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
             Assert.NotNull(existingComment);
         }
 
-        /// <summary>
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, returnerer feil.
-        /// </summary>
-        /// <summary>
+        
+       
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, returnerer NotFound.
-        /// </summary>
+        
         [Fact]
         public async Task DeleteConfirmed_Post_ConcurrencyException_ReturnsNotFound()
         {
@@ -1193,17 +1192,17 @@ public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
             Assert.Equal(model.Content, returnedModel.Content);
         }
 
-        /// <summary>
+       
         /// Hjelpe-metode for å sjekke om en kommentar eksisterer.
-        /// </summary>
+        
         private bool CommentExists(int id)
         {
             return _context.Comments.Any(e => e.Id == id);
         }
 
-        /// <summary>
+       
         /// Rydd opp etter tester ved å slette databasen.
-        /// </summary>
+        
         public void Dispose()
         {
             _context.Dispose();

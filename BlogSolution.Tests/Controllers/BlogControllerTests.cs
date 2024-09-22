@@ -138,9 +138,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(blog.Title, model.Title);
         }
         
-        /// <summary>
+       
         /// Tester at Create (POST) med gyldig modell og bruker oppretter en blogg og omdirigerer til Index.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_UserFound_CreatesBlogAndRedirects()
         {
@@ -188,9 +188,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(user.Id, blog.UserId);
         }
         
-        /// <summary>
+       
         /// Tester at Create (POST) med gyldig modell men bruker ikke funnet omdirigerer til Login.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_ValidModel_UserNotFound_RedirectsToLogin()
         {
@@ -222,9 +222,9 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal("Account", redirectResult.ControllerName);
         }
         
-        /// <summary>
+       
         /// Tester at Create (POST) med ugyldig modell returnerer View med modellen.
-        /// </summary>
+        
         [Fact]
         public async Task Create_Post_InvalidModel_ReturnsViewWithModel()
         {
