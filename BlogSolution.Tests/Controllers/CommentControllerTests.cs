@@ -75,7 +75,7 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(postId, model.PostId);
         }
 
-        /// <summary>
+         /// <summary>
         /// Tester at Create (POST) med gyldig modell oppretter en kommentar og omdirigerer til Post Details.
         /// </summary>
         [Fact]
@@ -91,6 +91,17 @@ namespace BlogSolution.Tests.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
+            // Opprett en Post som kommentaren refererer til med riktig UserId
+            var post = new Post 
+            { 
+                Id = 1, 
+                Title = "Test Post", 
+                Content = "Content of the test post.", 
+                UserId = user.Id // Sett UserId til eieren
+            };
+            _context.Posts.Add(post);
+            await _context.SaveChangesAsync();
+
             var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
 
             var model = new CommentCreateViewModel
@@ -99,16 +110,9 @@ namespace BlogSolution.Tests.Controllers
                 PostId = 1
             };
 
-            // Legg til en Post som kommentaren refererer til med riktig UserId
-            var post = new Post 
-            { 
-                Id = 1, 
-                Title = "Test Post", 
-                Content = "Content of the test post.", 
-                UserId = user.Id // Sett UserId
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
+            // Mock UserManager til å returnere user når GetUserAsync kalles
+            _userManagerMock.Setup(um => um.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+                .ReturnsAsync(user);
 
             // Simuler en autentisert bruker
             controller.ControllerContext = new ControllerContext()
@@ -509,66 +513,74 @@ namespace BlogSolution.Tests.Controllers
         }
 
         /// <summary>
-        /// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, returnerer feil.
-        /// </summary>
-        [Fact]
-        public async Task Edit_Post_ConcurrencyException_ThrowsException()
-        {
-            // Arrange
-            var user = new IdentityUser 
-            { 
-                Id = "user-id", 
-                UserName = "user@example.com", 
-                Email = "user@example.com" 
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+/// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, returnerer NotFound.
+/// </summary>
+[Fact]
+public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
+{
+    // Arrange
+    var user = new IdentityUser 
+    { 
+        Id = "user-id", 
+        UserName = "user@example.com", 
+        Email = "user@example.com" 
+    };
+    _context.Users.Add(user);
+    await _context.SaveChangesAsync();
 
-            // Legg til en Post som kommentaren refererer til med riktig UserId
-            var post = new Post 
-            { 
-                Id = 1, 
-                Title = "Test Post", 
-                Content = "Content of the test post.", 
-                UserId = user.Id // Sett UserId
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
+    // Legg til en Post som kommentaren refererer til med riktig UserId
+    var post = new Post 
+    { 
+        Id = 1, 
+        Title = "Test Post", 
+        Content = "Content of the test post.", 
+        UserId = user.Id // Sett UserId
+    };
+    _context.Posts.Add(post);
+    await _context.SaveChangesAsync();
 
-            var comment = new Comment 
-            { 
-                Id = 1, 
-                Content = "Original Comment", 
-                PostId = 1, 
-                UserId = user.Id 
-            };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+    var comment = new Comment 
+    { 
+        Id = 1, 
+        Content = "Original Comment", 
+        PostId = 1, 
+        UserId = user.Id 
+    };
+    _context.Comments.Add(comment);
+    await _context.SaveChangesAsync();
 
-            _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), comment, "IsCommentOwner"))
-                .ReturnsAsync(AuthorizationResult.Success());
+    _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), comment, "IsCommentOwner"))
+        .ReturnsAsync(AuthorizationResult.Success());
 
-            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+    var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
 
-            var model = new CommentEditViewModel
-            {
-                Content = "Updated Comment",
-                PostId = 1
-            };
+    var model = new CommentEditViewModel
+    {
+        Content = "Updated Comment",
+        PostId = 1
+    };
 
-            // Simuler en autentisert bruker
-            controller.ControllerContext = new ControllerContext()
-            {
-                HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
-            };
+    // Simuler en autentisert bruker
+    controller.ControllerContext = new ControllerContext()
+    {
+        HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
+    };
 
-            // Simulere koncurrensfeil ved å fjerne kommentaren før oppdatering
-            _context.Comments.Remove(comment);
-            await _context.SaveChangesAsync(); // Kommentaren er allerede fjernet
+    // Simulere koncurrensfeil ved å fjerne kommentaren før oppdatering
+    _context.Comments.Remove(comment);
+    await _context.SaveChangesAsync(); // Kommentaren er allerede fjernet
 
-            // Act & Assert
-            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => controller.Edit(comment.Id, model));
-        }
+    // Act
+    var result = await controller.Edit(comment.Id, model);
+
+    // Assert
+    Assert.IsType<NotFoundResult>(result);
+
+    // Valgfritt: Sjekk at kommentaren fortsatt ikke finnes i databasen
+    var existingComment = await _context.Comments.FindAsync(comment.Id);
+    Assert.Null(existingComment);
+}
+
 
         /// <summary>
         /// Tester at Delete (GET) med gyldig id og autorisert bruker returnerer View med korrekt modell.
@@ -662,60 +674,73 @@ namespace BlogSolution.Tests.Controllers
             Assert.IsType<NotFoundResult>(result);
         }
 
-        /// <summary>
-        /// Tester at Delete (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
-        [Fact]
-        public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
-        {
-            // Arrange
-            var user = new IdentityUser 
-            { 
-                Id = "user-id", 
-                UserName = "user@example.com", 
-                Email = "user@example.com" 
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+/// <summary>
+/// Tester at Delete (GET) med gyldig id, men uautorisert bruker returnerer Forbid.
+/// </summary>
+[Fact]
+public async Task Delete_Get_ValidId_Unauthorized_ReturnsForbid()
+{
+    // Arrange
+    var ownerUser = new IdentityUser 
+    { 
+        Id = "owner-user-id", 
+        UserName = "owner@example.com", 
+        Email = "owner@example.com" 
+    };
+    var otherUser = new IdentityUser 
+    { 
+        Id = "other-user-id", 
+        UserName = "other@example.com", 
+        Email = "other@example.com" 
+    };
+    _context.Users.Add(ownerUser);
+    _context.Users.Add(otherUser);
+    await _context.SaveChangesAsync();
 
-            // Legg til en Post som kommentaren refererer til med riktig UserId
-            var post = new Post 
-            { 
-                Id = 1, 
-                Title = "Test Post", 
-                Content = "Content of the test post.", 
-                UserId = user.Id // Sett UserId
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
+    // Opprett en Post som kommentaren refererer til med riktig UserId
+    var post = new Post 
+    { 
+        Id = 1, 
+        Title = "Test Post", 
+        Content = "Content of the test post.", 
+        UserId = ownerUser.Id // Sett UserId til eieren
+    };
+    _context.Posts.Add(post);
+    await _context.SaveChangesAsync();
 
-            var comment = new Comment 
-            { 
-                Id = 1, 
-                Content = "Comment to delete", 
-                PostId = 1, 
-                UserId = "other-user-id" // Setter til en annen bruker for å simulere uautorisert tilgang
-            };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+    // Opprett en kommentar knyttet til posten og eier-brukeren
+    var comment = new Comment 
+    { 
+        Id = 1, 
+        Content = "Comment to delete", 
+        PostId = 1, 
+        UserId = ownerUser.Id // Kommentar eies av ownerUser
+    };
+    _context.Comments.Add(comment);
+    await _context.SaveChangesAsync();
 
-            _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), comment, "IsCommentOwner"))
-                .ReturnsAsync(AuthorizationResult.Failed());
+    // Mock autorisasjon for å returnere feilet resultat når andreUser prøver å slette
+    _authorizationServiceMock.Setup(a => a.AuthorizeAsync(
+        It.IsAny<ClaimsPrincipal>(), 
+        It.Is<Comment>(c => c.Id == comment.Id), 
+        "IsCommentOwner"))
+        .ReturnsAsync(AuthorizationResult.Failed());
 
-            var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
+    var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
 
-            // Simuler en autentisert bruker
-            controller.ControllerContext = new ControllerContext()
-            {
-                HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
-            };
+    // Simuler en autentisert annen bruker (otherUser)
+    controller.ControllerContext = new ControllerContext()
+    {
+        HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(otherUser.Id, otherUser.UserName) }
+    };
 
-            // Act
-            var result = await controller.Delete(comment.Id);
+    // Act
+    var result = await controller.Delete(comment.Id);
 
-            // Assert
-            Assert.IsType<ForbidResult>(result);
-        }
+    // Assert
+    Assert.IsType<ForbidResult>(result);
+}
+
 
         /// <summary>
         /// Tester at DeleteConfirmed (POST) med gyldig id og autorisert bruker sletter kommentaren og omdirigerer til Post Details.
@@ -858,8 +883,11 @@ namespace BlogSolution.Tests.Controllers
         /// <summary>
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, returnerer feil.
         /// </summary>
+        /// <summary>
+        /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, returnerer NotFound.
+        /// </summary>
         [Fact]
-        public async Task DeleteConfirmed_Post_ConcurrencyException_ThrowsException()
+        public async Task DeleteConfirmed_Post_ConcurrencyException_ReturnsNotFound()
         {
             // Arrange
             var user = new IdentityUser 
@@ -897,25 +925,27 @@ namespace BlogSolution.Tests.Controllers
 
             var controller = new CommentController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object);
 
-            var model = new CommentEditViewModel
-            {
-                Content = "Updated Comment",
-                PostId = 1
-            };
-
             // Simuler en autentisert bruker
             controller.ControllerContext = new ControllerContext()
             {
                 HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
             };
 
-            // Simulere koncurrensfeil ved å fjerne kommentaren før oppdatering
+            // Simulere koncurrensfeil ved å fjerne kommentaren før sletting
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync(); // Kommentaren er allerede fjernet
 
-            // Act & Assert
-            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => controller.Edit(comment.Id, model));
+            // Act
+            var result = await controller.DeleteConfirmed(comment.Id);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+
+            // Sjekk at kommentaren fortsatt ikke finnes i databasen
+            var existingComment = await _context.Comments.FindAsync(comment.Id);
+            Assert.Null(existingComment);
         }
+
 
         /// <summary>
         /// Hjelpe-metode for å sjekke om en kommentar eksisterer.
