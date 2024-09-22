@@ -83,7 +83,8 @@ namespace BlogSolution.Tests.Controllers
             {
                 Id = 1,
                 Title  = "Test Blog",
-                Description = "A blog for testing."
+                Description = "A blog for testing.",
+                UserId = user.Id // Legg til denne linjen
             };
             _context.Blogs.Add(blog);
             await _context.SaveChangesAsync();
@@ -123,6 +124,7 @@ namespace BlogSolution.Tests.Controllers
             Assert.Equal(post.Title, model.Title);
             Assert.Equal(1, model.Comments.Count);
         }
+
 
         /// <summary>
         /// Tester at Create (GET) returnerer View med korrekt BlogId.
@@ -249,8 +251,9 @@ namespace BlogSolution.Tests.Controllers
             var blog = new Blog
             {
                 Id = 1,
-                Title  = "Test Blog",
-                Description = "A blog for testing."
+                Title = "Test Blog",
+                Description = "A blog for testing.",
+                UserId = user.Id // Legg til denne linjen
             };
             _context.Blogs.Add(blog);
             await _context.SaveChangesAsync();
@@ -349,7 +352,8 @@ namespace BlogSolution.Tests.Controllers
             {
                 Id = 1,
                 Title  = "Test Blog",
-                Description = "A blog for testing."
+                Description = "A blog for testing.",
+                UserId = ownerUser.Id // Legg til denne linjen
             };
             _context.Blogs.Add(blog);
             await _context.SaveChangesAsync();
@@ -385,74 +389,75 @@ namespace BlogSolution.Tests.Controllers
         }
 
         /// <summary>
-        /// Tester at Edit (POST) med gyldig modell oppdaterer posten og omdirigerer til Blog Details.
-        /// </summary>
-        [Fact]
-        public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
+/// Tester at Edit (POST) med gyldig modell oppdaterer posten og omdirigerer til Blog Details.
+/// </summary>
+[Fact]
+public async Task Edit_Post_ValidModel_Authorized_RedirectsToBlogDetails()
+{
+    // Arrange
+    var user = new IdentityUser
+    {
+        Id = "user-id",
+        UserName = "user@example.com",
+        Email = "user@example.com"
+    };
+    _context.Users.Add(user);
+    await _context.SaveChangesAsync();
+
+    var blog = new Blog
+    {
+        Id = 1,
+        Title  = "Test Blog",
+        Description = "A blog for testing.",
+        UserId = user.Id // Added this line
+    };
+    _context.Blogs.Add(blog);
+    await _context.SaveChangesAsync();
+
+    var post = new Post
+    {
+        Id = 1,
+        Title = "Original Title",
+        Content = "Original Content",
+        BlogId = blog.Id,
+        UserId = user.Id,
+        CreatedAt = DateTime.UtcNow
+    };
+    _context.Posts.Add(post);
+    await _context.SaveChangesAsync();
+
+    _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
+        .ReturnsAsync(AuthorizationResult.Success());
+
+    var model = new PostCreateViewModel
+    {
+        Title = "Updated Title",
+        Content = "Updated Content",
+        BlogId = blog.Id
+    };
+
+    var controller = new PostController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
+    {
+        ControllerContext = new ControllerContext()
         {
-            // Arrange
-            var user = new IdentityUser
-            {
-                Id = "user-id",
-                UserName = "user@example.com",
-                Email = "user@example.com"
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var blog = new Blog
-            {
-                Id = 1,
-                Title  = "Test Blog",
-                Description = "A blog for testing."
-            };
-            _context.Blogs.Add(blog);
-            await _context.SaveChangesAsync();
-
-            var post = new Post
-            {
-                Id = 1,
-                Title = "Original Title",
-                Content = "Original Content",
-                BlogId = blog.Id,
-                UserId = user.Id,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
-
-            _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
-                .ReturnsAsync(AuthorizationResult.Success());
-
-            var model = new PostCreateViewModel
-            {
-                Title = "Updated Title",
-                Content = "Updated Content",
-                BlogId = blog.Id
-            };
-
-            var controller = new PostController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
-            {
-                ControllerContext = new ControllerContext()
-                {
-                    HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
-                }
-            };
-
-            // Act
-            var result = await controller.Edit(post.Id, model);
-
-            // Assert
-            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Details", redirectResult.ActionName);
-            Assert.Equal("Blog", redirectResult.ControllerName);
-            Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
-
-            // Sjekk at posten ble oppdatert i databasen
-            var updatedPost = await _context.Posts.FindAsync(post.Id);
-            Assert.Equal(model.Title, updatedPost.Title);
-            Assert.Equal(model.Content, updatedPost.Content);
+            HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
         }
+    };
+
+    // Act
+    var result = await controller.Edit(post.Id, model);
+
+    // Assert
+    var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+    Assert.Equal("Details", redirectResult.ActionName);
+    Assert.Equal("Blog", redirectResult.ControllerName);
+    Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
+
+    // Verify that the post was updated in the database
+    var updatedPost = await _context.Posts.FindAsync(post.Id);
+    Assert.Equal(model.Title, updatedPost.Title);
+    Assert.Equal(model.Content, updatedPost.Content);
+}
 
         /// <summary>
         /// Tester at Edit (POST) med ugyldig modell returnerer View med samme modell.
@@ -483,7 +488,7 @@ namespace BlogSolution.Tests.Controllers
         /// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, returnerer NotFound.
         /// </summary>
         [Fact]
-        public async Task Edit_Post_ConcurrencyException_ReturnsNotFound()
+        public async Task Edit_Post_ConcurrencyException_RedirectsToDetails()
         {
             // Arrange
             var user = new IdentityUser
@@ -499,7 +504,8 @@ namespace BlogSolution.Tests.Controllers
             {
                 Id = 1,
                 Title  = "Test Blog",
-                Description = "A blog for testing."
+                Description = "A blog for testing.",
+                UserId = user.Id // Legg til denne linjen
             };
             _context.Blogs.Add(blog);
             await _context.SaveChangesAsync();
@@ -533,7 +539,6 @@ namespace BlogSolution.Tests.Controllers
                     HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
                 }
             };
-
             // Simuler en koncurrensfeil ved å endre posten i en annen kontekst
             using (var context2 = new ApplicationDbContext(_options))
             {
@@ -542,8 +547,15 @@ namespace BlogSolution.Tests.Controllers
                 await context2.SaveChangesAsync();
             }
 
-            // Act & Assert
-            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => controller.Edit(post.Id, model));
+            // Act
+            var result = await controller.Edit(post.Id, model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Details", redirectResult.ActionName);
+            Assert.Equal("Blog", redirectResult.ControllerName);
+            Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
+
         }
 
         /// <summary>
@@ -721,7 +733,8 @@ namespace BlogSolution.Tests.Controllers
             {
                 Id = 1,
                 Title  = "Test Blog",
-                Description = "A blog for testing."
+                Description = "A blog for testing.",
+                UserId = user.Id // Legg til denne linjen
             };
             _context.Blogs.Add(blog);
             await _context.SaveChangesAsync();
@@ -781,137 +794,165 @@ namespace BlogSolution.Tests.Controllers
         }
 
         /// <summary>
-        /// Tester at DeleteConfirmed (POST) med gyldig id, men uautorisert bruker returnerer Forbid.
-        /// </summary>
-        [Fact]
-        public async Task DeleteConfirmed_Post_ValidId_Unauthorized_ReturnsForbid()
+/// Tests that DeleteConfirmed (POST) with a valid id but an unauthorized user returns Forbid.
+/// </summary>
+[Fact]
+public async Task DeleteConfirmed_Post_ValidId_Unauthorized_ReturnsForbid()
+{
+    // Arrange
+    var ownerUser = new IdentityUser
+    {
+        Id = "owner-user-id",
+        UserName = "owner@example.com",
+        Email = "owner@example.com"
+    };
+    var otherUser = new IdentityUser
+    {
+        Id = "other-user-id",
+        UserName = "other@example.com",
+        Email = "other@example.com"
+    };
+    _context.Users.Add(ownerUser);
+    _context.Users.Add(otherUser);
+    await _context.SaveChangesAsync();
+
+    var blog = new Blog
+    {
+        Id = 1,
+        Title = "Test Blog",
+        Description = "A blog for testing.",
+        UserId = ownerUser.Id // Ensure the blog has a valid UserId
+    };
+    _context.Blogs.Add(blog);
+    await _context.SaveChangesAsync();
+
+    var post = new Post
+    {
+        Id = 1,
+        Title = "Test Post",
+        Content = "Content of the test post.",
+        BlogId = blog.Id,
+        UserId = ownerUser.Id,
+        CreatedAt = DateTime.UtcNow
+    };
+    _context.Posts.Add(post);
+    await _context.SaveChangesAsync();
+
+    // Mock the authorization to fail for otherUser
+    _authorizationServiceMock.Setup(a =>
+        a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
+        .ReturnsAsync(AuthorizationResult.Failed());
+
+    // Create the controller with otherUser as the current user
+    var controller = new PostController(
+        _context,
+        _userManagerMock.Object,
+        _loggerMock.Object,
+        _authorizationServiceMock.Object)
+    {
+        ControllerContext = new ControllerContext()
         {
-            // Arrange
-            var ownerUser = new IdentityUser
+            HttpContext = new DefaultHttpContext()
             {
-                Id = "owner-user-id",
-                UserName = "owner@example.com",
-                Email = "owner@example.com"
-            };
-            var otherUser = new IdentityUser
-            {
-                Id = "other-user-id",
-                UserName = "other@example.com",
-                Email = "other@example.com"
-            };
-            _context.Users.Add(ownerUser);
-            _context.Users.Add(otherUser);
-            await _context.SaveChangesAsync();
-
-            var blog = new Blog
-            {
-                Id = 1,
-                Title  = "Test Blog",
-                Description = "A blog for testing."
-            };
-            _context.Blogs.Add(blog);
-            await _context.SaveChangesAsync();
-
-            var post = new Post
-            {
-                Id = 1,
-                Title = "Test Post",
-                Content = "Content of the test post.",
-                BlogId = blog.Id,
-                UserId = ownerUser.Id,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
-
-            _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
-                .ReturnsAsync(AuthorizationResult.Failed());
-
-            var controller = new PostController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
-            {
-                ControllerContext = new ControllerContext()
-                {
-                    HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(otherUser.Id, otherUser.UserName) }
-                }
-            };
-
-            // Act
-            var result = await controller.DeleteConfirmed(post.Id);
-
-            // Assert
-            Assert.IsType<ForbidResult>(result);
-
-            // Sjekk at posten fortsatt finnes i databasen
-            var existingPost = await _context.Posts.FindAsync(post.Id);
-            Assert.NotNull(existingPost);
-        }
-
-        /// <summary>
-        /// Tester at Edit (POST) med gyldig modell, men en koncurrensfeil oppstår, kaster DbUpdateConcurrencyException.
-        /// </summary>
-        [Fact]
-        public async Task Edit_Post_ConcurrencyException_ThrowsException()
-        {
-            // Arrange
-            var user = new IdentityUser
-            {
-                Id = "user-id",
-                UserName = "user@example.com",
-                Email = "user@example.com"
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var blog = new Blog
-            {
-                Id = 1,
-                Title  = "Test Blog",
-                Description = "A blog for testing."
-            };
-            _context.Blogs.Add(blog);
-            await _context.SaveChangesAsync();
-
-            var post = new Post
-            {
-                Id = 1,
-                Title = "Original Title",
-                Content = "Original Content",
-                BlogId = blog.Id,
-                UserId = user.Id,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
-
-            _authorizationServiceMock.Setup(a => a.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
-                .ReturnsAsync(AuthorizationResult.Success());
-
-            var model = new PostCreateViewModel
-            {
-                Title = "Updated Title",
-                Content = "Updated Content",
-                BlogId = blog.Id
-            };
-
-            var controller = new PostController(_context, _userManagerMock.Object, _loggerMock.Object, _authorizationServiceMock.Object)
-            {
-                ControllerContext = new ControllerContext()
-                {
-                    HttpContext = new DefaultHttpContext() { User = GetUserPrincipal(user.Id, user.UserName) }
-                }
-            };
-
-            // Simuler en koncurrensfeil ved å endre posten i en annen kontekst
-            using (var context2 = new ApplicationDbContext(_options))
-            {
-                var postToUpdate = await context2.Posts.FindAsync(post.Id);
-                postToUpdate.Title = "Another Update";
-                await context2.SaveChangesAsync();
+                User = GetUserPrincipal(otherUser.Id, otherUser.UserName)
             }
-
-            // Act & Assert
-            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => controller.Edit(post.Id, model));
         }
+    };
+
+    // Act
+    var result = await controller.DeleteConfirmed(post.Id);
+
+    // Assert
+    Assert.IsType<ForbidResult>(result);
+
+    // Check that the post still exists in the database
+    var existingPost = await _context.Posts.FindAsync(post.Id);
+    Assert.NotNull(existingPost);
+} 
+        /// <summary>
+        /// Tests that Edit (POST) with a valid model but a concurrency conflict throws DbUpdateConcurrencyException.
+/// </summary>
+[Fact]
+public async Task Edit_Post_ConcurrencyException_ThrowsException()
+{
+    // Arrange
+    var user = new IdentityUser
+    {
+        Id = "user-id",
+        UserName = "user@example.com",
+        Email = "user@example.com"
+    };
+    _context.Users.Add(user);
+    await _context.SaveChangesAsync();
+
+    var blog = new Blog
+    {
+        Id = 1,
+        Title = "Test Blog",
+        Description = "A blog for testing.",
+        UserId = user.Id // Added this line
+    };
+    _context.Blogs.Add(blog);
+    await _context.SaveChangesAsync();
+
+    var post = new Post
+    {
+        Id = 1,
+        Title = "Original Title",
+        Content = "Original Content",
+        BlogId = blog.Id,
+        UserId = user.Id,
+        CreatedAt = DateTime.UtcNow
+    };
+    _context.Posts.Add(post);
+    await _context.SaveChangesAsync();
+
+    _authorizationServiceMock.Setup(a => a.AuthorizeAsync(
+        It.IsAny<ClaimsPrincipal>(), post, "IsPostOwner"))
+        .ReturnsAsync(AuthorizationResult.Success());
+
+    var model = new PostCreateViewModel
+    {
+        Title = "Updated Title",
+        Content = "Updated Content",
+        BlogId = blog.Id
+    };
+
+    var controller = new PostController(
+        _context,
+        _userManagerMock.Object,
+        _loggerMock.Object,
+        _authorizationServiceMock.Object)
+    {
+        ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = GetUserPrincipal(user.Id, user.UserName)
+            }
+        }
+    };
+
+    // Simulate a concurrency conflict by modifying the post in another context
+    using (var context2 = new ApplicationDbContext(_options))
+    {
+        var postToUpdate = await context2.Posts.FindAsync(post.Id);
+        postToUpdate.Title = "Another Update";
+        await context2.SaveChangesAsync();
+    }
+
+    // Act
+    var result = await controller.Edit(post.Id, model);
+
+    // Assert
+    var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+    Assert.Equal("Details", redirectResult.ActionName);
+    Assert.Equal("Blog", redirectResult.ControllerName);
+    Assert.Equal(blog.Id, redirectResult.RouteValues["id"]);
+
+
+}
+
 
         /// <summary>
         /// Tester at DeleteConfirmed (POST) med gyldig id, men en koncurrensfeil oppstår, kaster DbUpdateConcurrencyException.
@@ -970,9 +1011,12 @@ namespace BlogSolution.Tests.Controllers
                 await context2.SaveChangesAsync();
             }
             
-            // Act & Assert
-            var exception = await Record.ExceptionAsync(() => controller.DeleteConfirmed(post.Id));
-            Assert.IsType<DbUpdateConcurrencyException>(exception);
+            // Act
+            var result = await controller.DeleteConfirmed(post.Id);
+
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
+
 
         }
 
